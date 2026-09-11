@@ -1,0 +1,4 @@
+Model,Accuracy,Precision (Macro),Recall (Macro),F1 (Macro),Precision (Weighted),Recall (Weighted),F1 (Weighted)
+Baseline 1: Majority Class,0.1289,0.0161,0.125,0.0285,0.0166,0.1289,0.0294
+Baseline 2: TF-IDF + LogReg,0.6392,0.7213,0.6426,0.6389,0.7215,0.6392,0.6376
+Final System: Optimized N-Gram + LogReg,0.701,0.7404,0.705,0.7044,0.739,0.701,0.7021

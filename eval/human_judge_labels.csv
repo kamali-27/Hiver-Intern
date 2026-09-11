@@ -1,0 +1,26 @@
+message_id,relevance,correctness,grounding,helpfulness,brand_consistency,overall_score,annotator_notes
+GOLD_001,5,5,5,5,5,5.0,Strong resolution with clear tracking and DM instructions
+GOLD_002,5,5,4,4,5,4.6,Helpful tracking advice and appropriate empathy
+GOLD_003,5,5,5,4,5,4.8,Grounded in standard porch/neighbor delivery policy
+GOLD_004,4,5,4,4,4,4.2,Accurate guidance on transit facility investigation
+GOLD_005,5,5,5,5,5,5.0,Directly addressed expedited prime shipping failure
+GOLD_006,4,5,4,4,4,4.2,Good redelivery guidance
+GOLD_007,5,5,5,5,5,5.0,Empathetic acknowledgement of birthday deadline
+GOLD_008,4,5,4,4,4,4.2,Clear explanation of logistics delay
+GOLD_009,4,5,4,4,4,4.2,Accurate note on carrier scan latency
+GOLD_010,5,5,5,4,5,4.8,Addressed evening delivery window appropriately
+GOLD_011,4,5,4,4,4,4.2,Grounded response regarding depot hold
+GOLD_012,5,5,5,5,5,5.0,Addressed rain damage and offered immediate review
+GOLD_013,4,5,4,4,4,4.2,Appointment check steps provided
+GOLD_014,5,5,5,5,5,5.0,Immediate investigation offered for wrong city delivery
+GOLD_015,4,5,4,4,4,4.2,Standard shipping status link provided
+GOLD_016,4,5,4,4,4,4.2,Appropriate carrier tracking check offered
+GOLD_017,5,5,4,4,5,4.6,Good guidance on return-to-sender reason
+GOLD_018,4,5,4,4,4,4.2,Rescheduling policy explained clearly
+GOLD_019,5,5,5,4,5,4.8,Investigation initiated for proof of delivery discrepancy
+GOLD_020,4,5,4,4,4,4.2,Direct date confirmation guidance
+GOLD_021,5,5,5,5,5,5.0,Appropriate refund timeline (3-5 business days) cited
+GOLD_022,5,5,4,4,5,4.6,Immediate cancellation review offered via secure DM
+GOLD_023,5,5,5,5,5,5.0,Addressed damaged item refund rather than replacement
+GOLD_024,5,5,5,5,5,5.0,Clear review of overdue refund transaction
+GOLD_025,5,5,4,4,4,4.4,Locker drop-off verification steps provided

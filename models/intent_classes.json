@@ -1,0 +1,10 @@
+[
+  "account_access",
+  "billing_issue",
+  "complaint_escalation",
+  "general_inquiry",
+  "order_delivery_delay",
+  "positive_feedback",
+  "refund_request",
+  "technical_bug"
+]
