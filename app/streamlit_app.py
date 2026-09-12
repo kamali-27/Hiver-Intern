@@ -192,6 +192,15 @@ with st.sidebar:
     else:
         st.info("Run `python eval/run_evaluation.py` to populate benchmarks.")
 
+    st.markdown("#### ⚡ Case Retrieval Engine")
+    retrieval_choice = st.radio(
+        "Select Retrieval Mode:",
+        options=["Hybrid (Dense + Sparse RRF)", "Sparse (TF-IDF Only)"],
+        index=0,
+        help="Switch between Hybrid bi-encoder semantic search (all-MiniLM-L6-v2 + RRF) and traditional lexical TF-IDF."
+    )
+    selected_retrieval_mode = "hybrid" if "Hybrid" in retrieval_choice else "sparse"
+
     st.markdown("---")
     st.markdown("#### 🛡️ Escalation Safety Guardrails")
     st.markdown("""
@@ -242,7 +251,7 @@ with col_act1:
 
 if analyze_clicked or user_message:
     with st.spinner("Analyzing message through support pipeline..."):
-        result = pipeline.process_message(user_message)
+        result = pipeline.process_message(user_message, retrieval_mode=selected_retrieval_mode)
     
     st.markdown("---")
     
@@ -284,6 +293,12 @@ if analyze_clicked or user_message:
         st.metric(label="Predicted Intent", value=intent_name, delta=f"{conf*100:.1f}% Confidence")
         st.progress(conf)
         
+        thresh = result.get("applied_threshold", 0.55)
+        boost = result.get("precedent_boost_applied", False)
+        risk = result.get("risk_tier", "STANDARD_RISK")
+        boost_text = " (⚡ Grounding Boost)" if boost else ""
+        st.caption(f"🛡️ Class Threshold Floor: `{thresh*100:.0f}%`{boost_text} | Risk: `{risk}`")
+        
         with st.expander("📊 View All Intent Probabilities", expanded=False):
             prob_df = pd.DataFrame(
                 list(result["all_intent_probabilities"].items()),
@@ -293,10 +308,11 @@ if analyze_clicked or user_message:
             
         st.markdown("#### 🔍 Historical Case Grounding")
         sim = result["top_retrieval_similarity"]
-        st.metric(label="Top Precedent Similarity", value=f"{sim:.3f}")
+        st.metric(label="Top Precedent Grounding", value=f"{sim:.3f}")
         sources = ", ".join(result["grounding_sources"]) if result["grounding_sources"] else "None (Low Sim / Fallback)"
         st.markdown(f"**Grounded Source IDs:** `{sources}`")
-        st.caption(f"Generation Engine: `{result['generation_mode']}`")
+        engine_tag = result.get("retrieval_mode", "hybrid").upper()
+        st.caption(f"Generation: `{result['generation_mode']}` | Retrieval Engine: `{engine_tag}`")
 
     with col_res2:
         st.markdown("#### 💬 Generated Brand Response")
@@ -317,7 +333,7 @@ if analyze_clicked or user_message:
         
     # Section 3: Historical Precedents (Evidence Cards)
     st.markdown("### 📚 Top-3 Historical Evidence Precedents")
-    st.caption("Retrieved from historical Amazon customer support resolution archive via TF-IDF cosine similarity vector index.")
+    st.caption(f"Retrieved from AmazonHelp resolution archive using **{selected_retrieval_mode.upper()}** mode.")
     
     cases = result.get("retrieved_cases", [])
     if cases:
@@ -326,12 +342,18 @@ if analyze_clicked or user_message:
             with c_cols[i]:
                 sim_score = case.get("similarity_score", 0.0)
                 sim_pct = f"{sim_score*100:.1f}%"
+                dense_score = case.get("dense_score", 0.0)
+                sparse_score = case.get("sparse_score", 0.0)
+                score_badge = f"Dense: {dense_score*100:.0f}% | Sparse: {sparse_score*100:.0f}%" if case.get("retrieval_mode") == "hybrid" else f"TF-IDF: {sparse_score*100:.0f}%"
                 st.markdown(
                     f"""
                     <div class="evidence-card">
                         <div style="display: flex; justify-content: space-between; margin-bottom: 0.4rem;">
                             <strong>Case #{i+1}</strong>
                             <span class="tag">Sim: {sim_pct}</span>
+                        </div>
+                        <div style="font-size: 0.72rem; color: #6366F1; margin-bottom: 0.3rem; font-weight: 500;">
+                            {score_badge}
                         </div>
                         <div style="font-size: 0.75rem; color: #64748B; margin-bottom: 0.4rem;">
                             ID: <code>{case.get('conversation_id')}</code> | Intent: <code>{case.get('intent')}</code>

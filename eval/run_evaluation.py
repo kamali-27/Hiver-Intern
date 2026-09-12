@@ -176,8 +176,41 @@ def run_full_evaluation():
     print(f"[eval] Saved full pipeline outputs to: {full_outputs_path}")
 
     # Escalation metrics
-    routing_acc = accuracy_score(full_outputs_df["expected_decision"], full_outputs_df["system_decision"])
-    print(f"\n[eval] System Routing Policy Accuracy vs Expected: {routing_acc*100:.2f}%")
+    exp = full_outputs_df["expected_decision"]
+    pred = full_outputs_df["system_decision"]
+    routing_acc = accuracy_score(exp, pred)
+    
+    n_expected_auto = (exp == "AUTO_HANDLE").sum()
+    n_expected_esc = (exp == "ESCALATE_TO_HUMAN").sum()
+    
+    over_escalated = int(((exp == "AUTO_HANDLE") & (pred == "ESCALATE_TO_HUMAN")).sum())
+    under_escalated = int(((exp == "ESCALATE_TO_HUMAN") & (pred == "AUTO_HANDLE")).sum())
+    
+    over_esc_rate = over_escalated / n_expected_auto if n_expected_auto else 0.0
+    under_esc_rate = under_escalated / n_expected_esc if n_expected_esc else 0.0
+
+    print(f"\n" + "-" * 75)
+    print("ESCALATION ROUTING POLICY BENCHMARK")
+    print("-" * 75)
+    print(f"  Routing Policy Accuracy:   {routing_acc*100:.2f}%")
+    print(f"  Over-Escalation Rate:      {over_esc_rate*100:.2f}% ({over_escalated}/{n_expected_auto} benign queries)")
+    print(f"  Under-Escalation Rate:     {under_esc_rate*100:.2f}% ({under_escalated}/{n_expected_esc} high-risk escapes)")
+    print("-" * 75)
+
+    auto_handles = (pred == "AUTO_HANDLE").sum()
+    auto_prec = ((exp == "AUTO_HANDLE") & (pred == "AUTO_HANDLE")).sum() / auto_handles * 100 if auto_handles else 0.0
+    esc_recall = ((exp == "ESCALATE_TO_HUMAN") & (pred == "ESCALATE_TO_HUMAN")).sum() / n_expected_esc * 100 if n_expected_esc else 0.0
+
+    routing_perf_df = pd.DataFrame([{
+        "Routing Policy Accuracy": f"{routing_acc*100:.2f}%",
+        "Over-Escalation Rate": f"{over_esc_rate*100:.2f}%",
+        "Under-Escalation Rate": f"{under_esc_rate*100:.2f}%",
+        "Auto-Handle Precision": f"{auto_prec:.2f}%",
+        "Escalation Recall": f"{esc_recall:.2f}%"
+    }])
+    routing_perf_path = os.path.join(RESULTS_DIR, "routing_performance.csv")
+    routing_perf_df.to_csv(routing_perf_path, index=False)
+    print(f"[eval] Saved routing performance benchmark to: {routing_perf_path}")
 
     # 4. Save Judge Scores
     print("\n[eval] Step 3/4: Summarizing Judge Evaluation Scores...")

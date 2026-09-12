@@ -28,10 +28,12 @@ FINAL_MODEL_PATH = os.path.join(PROJECT_ROOT, "models", "final_intent_classifier
 class CustomerSupportPipeline:
     """
     Unified production pipeline for processing incoming customer support messages.
+    Supports Hybrid (Dense + Sparse) or Sparse-only retrieval.
     """
-    def __init__(self, use_llm: Optional[bool] = None):
+    def __init__(self, use_llm: Optional[bool] = None, retrieval_mode: str = "hybrid"):
+        self.retrieval_mode = retrieval_mode
         self.model = self._load_classifier()
-        self.retriever = get_or_build_retriever()
+        self.retriever = get_or_build_retriever(load_dense=(retrieval_mode == "hybrid"))
         self.generator = ResponseGenerator(use_llm=use_llm)
         self.escalation_engine = EscalationEngine()
 
@@ -43,11 +45,12 @@ class CustomerSupportPipeline:
             train_and_evaluate_all()
         return joblib.load(FINAL_MODEL_PATH)
 
-    def process_message(self, message: str) -> Dict[str, Any]:
+    def process_message(self, message: str, retrieval_mode: Optional[str] = None) -> Dict[str, Any]:
         """
         Executes full pipeline: Classify -> Retrieve -> Generate -> Escalate.
         """
         clean_msg = (message or "").strip()
+        active_retrieval_mode = retrieval_mode or self.retrieval_mode
 
         # Handle empty/whitespace input
         if not clean_msg:
@@ -61,6 +64,7 @@ class CustomerSupportPipeline:
                 "generated_reply": "Hello! We didn't receive any message content. How can we help you today?",
                 "grounding_sources": [],
                 "generation_mode": "fallback_empty",
+                "retrieval_mode": active_retrieval_mode,
                 "escalation_decision": "ESCALATE_TO_HUMAN",
                 "escalation_reason": "Customer message was empty or invalid.",
                 "escalation_flags": ["EMPTY_MESSAGE"]
@@ -76,7 +80,7 @@ class CustomerSupportPipeline:
         prob_dict = {cls: round(float(p), 4) for cls, p in zip(classes, probas)}
 
         # 2. Case Retrieval
-        retrieved_cases = self.retriever.retrieve(clean_msg, k=3)
+        retrieved_cases = self.retriever.retrieve(clean_msg, k=3, mode=active_retrieval_mode)
         top_similarity = retrieved_cases[0]["similarity_score"] if retrieved_cases else 0.0
 
         # 3. Response Generation
@@ -100,19 +104,23 @@ class CustomerSupportPipeline:
             "generated_reply": gen_result["reply_text"],
             "grounding_sources": gen_result["grounding_sources"],
             "generation_mode": gen_result["generation_mode"],
+            "retrieval_mode": active_retrieval_mode,
             "escalation_decision": esc_result["decision"],
             "escalation_reason": esc_result["reason"],
-            "escalation_flags": esc_result["flags"]
+            "escalation_flags": esc_result["flags"],
+            "applied_threshold": esc_result.get("applied_threshold", 0.55),
+            "precedent_boost_applied": esc_result.get("precedent_boost_applied", False),
+            "risk_tier": esc_result.get("risk_tier", "STANDARD_RISK")
         }
 
 
 # Singleton pipeline instance for reuse
 _PIPELINE_INSTANCE = None
 
-def get_pipeline(use_llm: Optional[bool] = None) -> CustomerSupportPipeline:
+def get_pipeline(use_llm: Optional[bool] = None, retrieval_mode: str = "hybrid") -> CustomerSupportPipeline:
     global _PIPELINE_INSTANCE
     if _PIPELINE_INSTANCE is None:
-        _PIPELINE_INSTANCE = CustomerSupportPipeline(use_llm=use_llm)
+        _PIPELINE_INSTANCE = CustomerSupportPipeline(use_llm=use_llm, retrieval_mode=retrieval_mode)
     return _PIPELINE_INSTANCE
 
 

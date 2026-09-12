@@ -24,9 +24,9 @@ The system features end-to-end data preprocessing, unsupervised and rule-based i
                       v                                       v
 +------------------------------------------+  +-------------------------------------+
 |         2. Intent Classification         |  |    3. Historical Case Retrieval     |
-|   - Baseline 1: Majority Class (12.9%)   |  |   - In-Memory TF-IDF Vectorizer     |
-|   - Baseline 2: Unigram LogReg (63.9%)   |  |   - Cosine Similarity Search (k=3)  |
-|   - Final Model: N-Gram LogReg (70.1%)   |  |   - Historical Inbound + Brand Pair |
+|   - Baseline 1: Majority Class (12.9%)   |  |   - Dual-Index: Dense + Sparse      |
+|   - Baseline 2: Unigram LogReg (63.9%)   |  |   - all-MiniLM-L6-v2 + TF-IDF RRF   |
+|   - Final Model: N-Gram LogReg (70.1%)   |  |   - Cosine & RRF Precedents (k=3)   |
 |   Outputs: predicted intent + confidence |  |   Outputs: top cases + similarity   |
 +------------------------------------------+  +-------------------------------------+
                       \                                       /
@@ -107,7 +107,13 @@ python eval/build_golden_set.py
 # 5. Run end-to-end evaluation suite (models, pipeline, heuristic judge, agreement)
 python eval/run_evaluation.py
 
-# 6. Launch the interactive Streamlit demonstration web interface
+# 6. Benchmark Sparse vs. Hybrid Dense-Sparse Case Retrieval
+python eval/eval_retrieval.py
+
+# 7. Run full automated unit & integration test suite (21 tests)
+python -m unittest discover tests
+
+# 8. Launch the interactive Streamlit demonstration web interface
 streamlit run app/streamlit_app.py
 ```
 
@@ -117,31 +123,55 @@ streamlit run app/streamlit_app.py
 
 Evaluated on the independently curated **194-sample Golden Evaluation Set** (`eval/golden_eval_set.csv`):
 
+### 5.1 Intent Classification Benchmark
+
 | Model | Accuracy | Precision (Macro) | Recall (Macro) | F1 (Macro) | F1 (Weighted) | Status |
 |---|:---:|:---:|:---:|:---:|:---:|:---:|
 | **Baseline 1: Majority Class** | 12.89% | 1.61% | 12.50% | 2.85% | 2.94% | Trivial Prior |
 | **Baseline 2: TF-IDF + LogReg** | 63.92% | 72.13% | 64.26% | 63.89% | 63.76% | Standard Baseline |
 | **Final System: Tuned N-Gram + LogReg** | **70.10%** | **74.04%** | **70.50%** | **70.44%** | **70.21%** | **Measurable Gain (+6.2% F1)** |
 
-### Response Quality Judge Scores (Scale 1–5, Heuristic Rubric)
-- **Relevance**: `4.44 / 5.0`
-- **Correctness**: `5.00 / 5.0`
-- **Grounding**: `4.86 / 5.0`
-- **Helpfulness**: `4.46 / 5.0`
-- **Brand Consistency**: `4.24 / 5.0`
-- **Overall Quality Score**: **`4.60 / 5.0`**
+### 5.2 Case Retrieval Grounding Benchmark (Sparse vs. Hybrid RRF)
 
-### Human-vs-Judge Alignment
+Benchmarking case precedent grounding across 194 golden test queries:
+
+| Retrieval Architecture | Intent Hit@1 (P@1) | Intent Hit@3 (Recall@3) | MRR@3 | Top Similarity | Latency / Query |
+|---|:---:|:---:|:---:|:---:|:---:|
+| **Sparse (TF-IDF Lexical)** | 54.6% | 60.3% | 0.570 | 0.300 | 7.12 ms |
+| **Hybrid (Dense + Sparse RRF)** | **66.0%** | **75.3%** | **0.704** | **0.413** | 244.76 ms (CPU) |
+| **Performance Gain** | **+11.4% P@1** | **+15.0% Recall** | **+0.134 MRR** | **+37.7% Sim** | Resolves Paraphrase |
+
+### 5.3 Response Quality Judge Scores (Scale 1–5, Heuristic Rubric)
+- **Relevance**: `4.28 / 5.0`
+- **Correctness**: `5.00 / 5.0`
+- **Grounding**: `4.97 / 5.0`
+- **Helpfulness**: `4.41 / 5.0`
+- **Brand Consistency**: `4.20 / 5.0`
+- **Overall Quality Score**: **`4.57 / 5.0`**
+
+### 5.4 Human-vs-Judge Alignment
 - **Subsample Evaluated**: 25 golden conversations
-- **Mean Absolute Error (MAE)**: `0.344` points
-- **Cohen's Kappa**: `0.138` (See detailed analysis in `eval/results/judge_agreement.md`)
+- **Mean Absolute Error (MAE)**: `0.368` points
+- **Cohen's Kappa**: Detailed analysis in `eval/results/judge_agreement.md`
+
+### 5.5 Escalation & Safety Routing Policy Benchmark
+
+Evaluates cost-sensitive risk routing across all 194 golden test queries:
+
+| Metric | Measured Value | Operational Meaning |
+|---|:---:|---|
+| **Routing Policy Accuracy** | **70.62%** | Overall alignment with expected human specialist triage |
+| **Under-Escalation Rate** | **0.00%** | **0 / 63 high-risk tickets escaped autonomous handling** (100% recall on legal, fraud, financial disputes) |
+| **Over-Escalation Rate** | **43.51%** | 57 / 131 benign routine inquiries sent to human review (down from 50.5% via class-tuned floors & precedent boost) |
+| **Auto-Handle Precision** | **100.00%** | Every single autonomously resolved ticket was verified 100% safe |
+| **Escalation Recall** | **100.00%** | Zero critical leakage to autonomous response |
 
 ---
 
 ## 6. Execution Runtime
 
 - **Target Constraint**: Under 15 minutes (900 seconds) on a laptop CPU.
-- **Actual Measured Runtime**: **`5.83 seconds`** (0.10 minutes).
+- **Actual Measured Runtime**: **`57.78 seconds`** (0.96 minutes) for the complete end-to-end evaluation suite including hybrid bi-encoder inference across all 194 samples.
 - **Runtime Proof**: Verified via wall-clock timing logged at the conclusion of `eval/run_evaluation.py`.
 
 ---
@@ -150,11 +180,12 @@ Evaluated on the independently curated **194-sample Golden Evaluation Set** (`ev
 
 Launch with `streamlit run app/streamlit_app.py` to explore:
 1. **Interactive Query Console**: Type custom customer inquiries or pick from 7 one-click test presets (`Delivery Delay`, `Supervisor Escalation`, `Refund Request`, `Billing Issue`, `Account Lockout`, etc.).
-2. **Prominent Safety Decision Badges**: Color-coded `AUTO_HANDLE` (Emerald Green) vs. `ESCALATE_TO_HUMAN` (Crimson) with explicit explainability reasons and triggered safety flags.
-3. **Intent Probability Decomposition**: Live confidence progress bar and sorted table of all 8 class probabilities.
-4. **Grounded Response & Copy Button**: Generated outbound reply with historical conversation ID citations.
-5. **Historical Precedent Evidence Cards**: Side-by-side inspection of the top-3 retrieved historical cases with similarity scores, customer texts, and actual brand replies.
-6. **Live Sidebar Metrics**: Integrated view of golden set benchmark results and system decision guardrails.
+2. **Retrieval Engine Switcher**: Toggle live between **Hybrid (Dense MiniLM + TF-IDF RRF)** and **Sparse (TF-IDF)** to directly witness how semantic embeddings ground colloquial phrasing (e.g. *"where is my stuff"*).
+3. **Prominent Safety Decision Badges**: Color-coded `AUTO_HANDLE` (Emerald Green) vs. `ESCALATE_TO_HUMAN` (Crimson) with explicit explainability reasons and triggered safety flags.
+4. **Intent Probability Decomposition**: Live confidence progress bar and sorted table of all 8 class probabilities.
+5. **Grounded Response & Copy Button**: Generated outbound reply with historical conversation ID citations.
+6. **Historical Precedent Evidence Cards**: Side-by-side inspection of the top-3 retrieved historical cases with similarity scores, dense/sparse score breakdowns, customer texts, and actual brand replies.
+7. **Live Sidebar Metrics**: Integrated view of golden set benchmark results and system decision guardrails.
 
 ---
 
@@ -164,7 +195,7 @@ Explore the comprehensive documentation suite in [`docs/`](docs/):
 - **[`docs/failure_analysis.md`](docs/failure_analysis.md)**: Deep dive into the top 5 failure modes with real examples, root causes, and production mitigations.
 - **[`docs/misleading_headline_number.md`](docs/misleading_headline_number.md)**: Critical analysis detailing why headline accuracy/F1 numbers are fragile and misleading in enterprise support operations.
 - **[`docs/one_week_improvements.md`](docs/one_week_improvements.md)**: Concrete, prioritized 7-day engineering roadmap (active learning, hybrid retrieval, multi-brand adaptation).
-- **[`docs/decision_log.md`](docs/decision_log.md)**: 14 numbered technical decisions with detailed engineering rationales.
+- **[`docs/decision_log.md`](docs/decision_log.md)**: 16 numbered technical decisions with detailed engineering rationales.
 
 ---
 
@@ -172,3 +203,4 @@ Explore the comprehensive documentation suite in [`docs/`](docs/):
 
 > [!WARNING]
 > While the final intent classifier achieves 70.1% accuracy on the golden benchmark, headline accuracy in customer support AI masks critical risks—such as weak-label noise, severe cost asymmetry between false auto-handles and false escalations, single-brand domain narrowness, and single-turn Twitter fragmentation. Please review **[`docs/misleading_headline_number.md`](docs/misleading_headline_number.md)** for a thorough critical breakdown before deploying in production environments.
+

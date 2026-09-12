@@ -36,7 +36,10 @@ class TestCustomerSupportPipeline(unittest.TestCase):
             "generation_mode",
             "escalation_decision",
             "escalation_reason",
-            "escalation_flags"
+            "escalation_flags",
+            "applied_threshold",
+            "precedent_boost_applied",
+            "risk_tier"
         ]
         for key in expected_keys:
             self.assertIn(key, result, f"Missing expected key: {key}")

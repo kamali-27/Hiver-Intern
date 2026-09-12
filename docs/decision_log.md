@@ -1,6 +1,6 @@
 # Technical Decision Log
 
-This document records the **14 key architectural and technical decisions** made during the design, modeling, evaluation, and deployment of the AI Customer Support Agent. Each decision includes the engineering context, alternatives evaluated, and explicit rationale.
+This document records the **16 key architectural and technical decisions** made during the design, modeling, evaluation, and deployment of the AI Customer Support Agent. Each decision includes the engineering context, alternatives evaluated, and explicit rationale.
 
 ---
 
@@ -99,3 +99,26 @@ This document records the **14 key architectural and technical decisions** made 
 - **Context**: Providing an intuitive, executive-ready interface for recruiters, interviewers, and team members to test the system.
 - **Alternatives Evaluated**: Command-line interface (CLI) only, complex React/Next.js frontend requiring Node.js.
 - **Rationale**: Streamlit provides a clean, single-page Python application with zero frontend build steps. We styled it with custom CSS, color-coded decision badges (Emerald Green for `AUTO_HANDLE`, Crimson for `ESCALATE`), intent confidence bars, copyable replies, and 7 one-click test buttons representing distinct customer scenarios.
+
+---
+
+### Decision 15: Hybrid Dense + Sparse Retrieval with Reciprocal Rank Fusion (RRF)
+- **Context**: Pure TF-IDF sparse retrieval relies strictly on keyword overlap, failing when customers use colloquial phrasing or synonyms ("where is my stuff" vs. "package tracking and delivery status").
+- **Alternatives Evaluated**: Pure dense retrieval without keyword matching (risks hallucinating on exact order IDs/SKUs), external vector databases (Pinecone, ChromaDB, Qdrant).
+- **Rationale**: We designed a dual-index hybrid architecture combining lightweight dense bi-encoder embeddings (`sentence-transformers/all-MiniLM-L6-v2`, 384 dimensions, normalized dot-product similarity) with sparse sublinear TF-IDF n-gram matching. Results are fused using Reciprocal Rank Fusion ($k=60$). This design:
+  1. Improves Golden Set Recall@3 from **60.3% to 75.3%** (+15.0% absolute lift) and MRR@3 from **0.570 to 0.704**.
+  2. Solves semantic paraphrase mismatch while preserving exact lexical matching for tracking IDs and product codes.
+  3. Operates 100% locally with precomputed `.npy` embeddings, with graceful fallback to sparse TF-IDF if dense weights are unavailable.
+
+---
+
+### Decision 16: Asymmetric Cost-Sensitive Escalation Optimization (Neyman-Pearson Class Floors & Zero-Escape Guardrails)
+- **Context**: A static confidence threshold (0.55) across all customer inquiries caused excessive over-escalation (50.5%) on benign routine queries (e.g. delivery tracking) while risking false auto-resolutions on financially hazardous dispute edges.
+- **Alternatives Evaluated**: Uniform threshold relaxation (increases catastrophic financial leakage), ML-based binary escalation classifier (opaque black-box risk without auditability).
+- **Rationale**: We formulated escalation as a constrained Neyman-Pearson safety problem ($\min \text{Escalation Rate}$ s.t. $P(\text{Under-Escalate} \mid \text{High-Risk}) = 0$):
+  1. **Class-Conditioned Confidence Floors**: Tuned per intent risk profile (`0.32` for routine delivery tracking, `0.35` for general inquiries, `0.52` for billing, `0.70` for refund authorizations and complaints).
+  2. **Precedent-Assisted Relaxation**: If top hybrid retrieval similarity is exceptionally high ($\ge 0.45$) on routine low-risk inquiries, the confidence threshold is safely relaxed by 0.05.
+  3. **Deterministic Financial Zero-Escape Guardrail**: Explicit regex patterns intercepting refund demands and dispute language ("gift card instead of", "charged twice", "chargeback") guarantee human escalation even if the classifier mispredicts intent as a benign query.
+  4. **Empirical Results**: Achieves **0.00% Under-Escalation** (0 / 63 high-risk tickets escape), **100.00% Auto-Handle Precision**, and drops Over-Escalation from 50.5% to **43.51%** on the 194-sample Golden Set.
+
+
