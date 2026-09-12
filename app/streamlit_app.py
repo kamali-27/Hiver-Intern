@@ -1,7 +1,11 @@
 """
-Streamlit Web Application: AI Customer Support Agent
-Single-page demo interface for testing intent classification, case retrieval,
-grounded response generation, and safety escalation logic.
+Streamlit Web Application: Enterprise AI Customer Support Suite (Hiver/Zendesk Style)
+Multi-view support intelligence platform featuring:
+1. 🛡️ Autonomous Agent Console
+2. ⚡ Live Support Dialog Simulator
+3. 📊 Brand Intelligence & Operations Dashboard
+4. 📚 RAG Knowledge Base & Precedent Search
+5. 📥 Enterprise Support Ticket Inbox
 """
 
 import os
@@ -15,16 +19,21 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 from src.pipeline import get_pipeline
+from app.views.agent_console import render_agent_console
+from app.views.live_simulator import render_live_simulator
+from app.views.brand_analysis import render_brand_analysis
+from app.views.rag_search import render_rag_search
+from app.views.ticket_inbox import render_ticket_inbox
 
 # Configure Streamlit page
 st.set_page_config(
-    page_title="AI Customer Support Agent | Autonomous Helpdesk",
+    page_title="Autonomous AI Customer Support Suite | Hiver SDE",
     page_icon="🛡️",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom Styling for polished, executive-ready presentation
+# Custom Global Styling
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
@@ -34,7 +43,7 @@ st.markdown("""
     }
     
     .main-header {
-        font-size: 2.2rem;
+        font-size: 2.1rem;
         font-weight: 700;
         background: linear-gradient(90deg, #1E3A8A 0%, #3B82F6 100%);
         -webkit-background-clip: text;
@@ -43,9 +52,9 @@ st.markdown("""
     }
     
     .sub-header {
-        font-size: 1.05rem;
+        font-size: 1.0rem;
         color: #4B5563;
-        margin-bottom: 1.5rem;
+        margin-bottom: 1.2rem;
     }
     
     .badge-auto {
@@ -126,37 +135,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Sample test cases for one-click demo
-SAMPLE_QUERIES = [
-    {
-        "label": "📦 Delivery Delay (Routine)",
-        "query": "Where is my package? Order #112-9281726 was supposed to arrive yesterday and tracking has not updated!",
-    },
-    {
-        "label": "🚨 Angry Escalation / Legal (High Risk)",
-        "query": "Your carrier threw my package into the mud and ruined my sister's wedding gift. I demand to speak with a supervisor immediately or I will contact my lawyer!",
-    },
-    {
-        "label": "💰 Refund Request (Financial Action)",
-        "query": "The product arrived completely shattered. I returned it to the locker 4 days ago. Where is my $120.00 refund?",
-    },
-    {
-        "label": "💳 Billing Discrepancy",
-        "query": "I noticed an unexpected duplicate charge of $14.99 on my credit card statement for Prime Video. Can you refund this?",
-    },
-    {
-        "label": "🔐 Account Access Lockout",
-        "query": "I am locked out of my Amazon account because 2-factor authentication is sending codes to my old disconnected phone number.",
-    },
-    {
-        "label": "❌ Cancellation Request",
-        "query": "Please cancel order #402-8827162 immediately! I placed it by accident 10 minutes ago.",
-    },
-    {
-        "label": "❓ Ambiguous Query (Low Confidence)",
-        "query": "I don't understand why this thing is like that, please check it.",
-    }
-]
 
 # Initialize pipeline with caching
 @st.cache_resource(show_spinner="Initializing AI Support Agent pipeline...")
@@ -164,6 +142,7 @@ def load_support_pipeline():
     return get_pipeline()
 
 pipeline = load_support_pipeline()
+
 
 # Load evaluation benchmarks for the sidebar
 @st.cache_data
@@ -175,23 +154,30 @@ def load_benchmark_data():
 
 bench_df = load_benchmark_data()
 
-# ----------------- SIDEBAR -----------------
-with st.sidebar:
-    st.image("https://img.icons8.com/fluent/96/bot.png", width=64)
-    st.markdown("### 🤖 Support Agent Console")
-    st.markdown("**Version**: 1.0.0 (Hiver SDE Production Spec)")
-    st.markdown("**Focus Brand**: `AmazonHelp` (Retail / E-Commerce)")
-    st.markdown("---")
-    
-    st.markdown("#### 🎯 Intent Classification Benchmarks")
-    if bench_df is not None:
-        display_df = bench_df[["Model", "Accuracy", "F1 (Weighted)", "Recall (Weighted)"]].copy()
-        for col in ["Accuracy", "F1 (Weighted)", "Recall (Weighted)"]:
-            display_df[col] = (display_df[col] * 100).round(1).astype(str) + "%"
-        st.dataframe(display_df, hide_index=True, use_container_width=True)
-    else:
-        st.info("Run `python eval/run_evaluation.py` to populate benchmarks.")
 
+# ----------------- SIDEBAR NAVIGATION & CONFIG -----------------
+with st.sidebar:
+    st.image("https://img.icons8.com/fluent/96/bot.png", width=60)
+    st.markdown("### 🛡️ Helpdesk Suite")
+    st.caption("Autonomous AI Support Platform (Hiver SDE Style)")
+    st.markdown("---")
+
+    # Module Navigation
+    st.markdown("#### 🧭 Platform Modules")
+    selected_view = st.radio(
+        "Select Workspace View:",
+        options=[
+            "🛡️ Agent Console",
+            "⚡ Live Simulator",
+            "📊 Brand Analysis",
+            "📚 RAG Knowledge Search",
+            "📥 Ticket Inbox"
+        ],
+        index=0,
+        label_visibility="collapsed"
+    )
+
+    st.markdown("---")
     st.markdown("#### ⚡ Case Retrieval Engine")
     retrieval_choice = st.radio(
         "Select Retrieval Mode:",
@@ -202,173 +188,35 @@ with st.sidebar:
     selected_retrieval_mode = "hybrid" if "Hybrid" in retrieval_choice else "sparse"
 
     st.markdown("---")
-    st.markdown("#### 🛡️ Escalation Safety Guardrails")
-    st.markdown("""
-    The system deterministically routes messages to humans when:
-    - **Intent Confidence** < `0.55`
-    - **High-Risk Intent** (`refund_request`, `complaint_escalation`, `cancellation_request`)
-    - **Retrieval Grounding** < `0.25` similarity
-    - **Trigger Keywords** (*supervisor*, *lawyer*, *fraud*, *bbb*, *dispute*)
-    - **Extreme Frustration / Profanity**
-    """)
-    st.markdown("---")
-    st.markdown("#### 📖 Documentation Links")
-    st.markdown("- [Failure Analysis Report](docs/failure_analysis.md)")
-    st.markdown("- [Why Headline Numbers Lie](docs/misleading_headline_number.md)")
-    st.markdown("- [7-Day Improvement Roadmap](docs/one_week_improvements.md)")
-    st.markdown("- [System Decision Log](docs/decision_log.md)")
-
-# ----------------- MAIN INTERFACE -----------------
-st.markdown('<div class="main-header">Autonomous Customer Support Agent</div>', unsafe_allow_html=True)
-st.markdown(
-    '<div class="sub-header">Data-driven intent classification, grounded historical case retrieval, and explainable escalation safety controls.</div>',
-    unsafe_allow_html=True
-)
-
-# Quick preset selector
-st.markdown("##### ⚡ Quick Select Test Scenarios:")
-preset_cols = st.columns(4)
-for idx, item in enumerate(SAMPLE_QUERIES):
-    with preset_cols[idx % 4]:
-        if st.button(item["label"], key=f"quick_{idx}", use_container_width=True):
-            st.session_state["current_message_input"] = item["query"]
-            st.rerun()
-
-if "current_message_input" not in st.session_state:
-    st.session_state["current_message_input"] = SAMPLE_QUERIES[0]["query"]
-
-# Main text input
-user_message = st.text_area(
-    "Enter customer message:",
-    key="current_message_input",
-    height=100,
-    placeholder="Type an inbound customer support inquiry..."
-)
-
-col_act1, col_act2, col_act3 = st.columns([1.5, 2, 2])
-with col_act1:
-    analyze_clicked = st.button("🚀 Process Message", type="primary", use_container_width=True)
-
-if analyze_clicked or user_message:
-    with st.spinner("Analyzing message through support pipeline..."):
-        result = pipeline.process_message(user_message, retrieval_mode=selected_retrieval_mode)
-    
-    st.markdown("---")
-    
-    # Section 1: Decision Banner & Explainable Escalation
-    col_dec1, col_dec2 = st.columns([1.2, 2.8])
-    with col_dec1:
-        if result["escalation_decision"] == "AUTO_HANDLE":
-            st.markdown(
-                '<div class="badge-auto">✅ AUTO-HANDLE</div>',
-                unsafe_allow_html=True
-            )
-            st.caption("Autonomous AI resolution approved")
-        else:
-            st.markdown(
-                '<div class="badge-escalate">🚨 ESCALATE TO HUMAN</div>',
-                unsafe_allow_html=True
-            )
-            st.caption("Routed to Human Support Specialist")
-            
-    with col_dec2:
-        reason_class = "reason-box" if result["escalation_decision"] == "AUTO_HANDLE" else "reason-box-escalate"
-        st.markdown(
-            f'<div class="{reason_class}"><strong>Reason:</strong> {result["escalation_reason"]}</div>',
-            unsafe_allow_html=True
-        )
-        if result.get("escalation_flags"):
-            flag_badges = " ".join([f'<span class="tag">{f}</span>' for f in result["escalation_flags"]])
-            st.markdown(f"**Triggered Safety Flags:** {flag_badges}", unsafe_allow_html=True)
-
-    # Section 2: Intent Classification & Generation
-    st.markdown("### 📝 Analysis & Resolution")
-    col_res1, col_res2 = st.columns([1.3, 1.7])
-    
-    with col_res1:
-        st.markdown("#### 🎯 Intent Detection")
-        intent_name = result["predicted_intent"].replace("_", " ").title()
-        conf = result["intent_confidence"]
-        
-        st.metric(label="Predicted Intent", value=intent_name, delta=f"{conf*100:.1f}% Confidence")
-        st.progress(conf)
-        
-        thresh = result.get("applied_threshold", 0.55)
-        boost = result.get("precedent_boost_applied", False)
-        risk = result.get("risk_tier", "STANDARD_RISK")
-        boost_text = " (⚡ Grounding Boost)" if boost else ""
-        st.caption(f"🛡️ Class Threshold Floor: `{thresh*100:.0f}%`{boost_text} | Risk: `{risk}`")
-        
-        with st.expander("📊 View All Intent Probabilities", expanded=False):
-            prob_df = pd.DataFrame(
-                list(result["all_intent_probabilities"].items()),
-                columns=["Intent", "Probability"]
-            ).sort_values(by="Probability", ascending=False)
-            st.dataframe(prob_df, hide_index=True, use_container_width=True)
-            
-        st.markdown("#### 🔍 Historical Case Grounding")
-        sim = result["top_retrieval_similarity"]
-        st.metric(label="Top Precedent Grounding", value=f"{sim:.3f}")
-        sources = ", ".join(result["grounding_sources"]) if result["grounding_sources"] else "None (Low Sim / Fallback)"
-        st.markdown(f"**Grounded Source IDs:** `{sources}`")
-        engine_tag = result.get("retrieval_mode", "hybrid").upper()
-        st.caption(f"Generation: `{result['generation_mode']}` | Retrieval Engine: `{engine_tag}`")
-
-    with col_res2:
-        st.markdown("#### 💬 Generated Brand Response")
-        st.markdown(
-            f"""
-            <div class="response-card">
-                <div style="color: #6B7280; font-size: 0.8rem; margin-bottom: 0.5rem; text-transform: uppercase; font-weight: 600;">
-                    Proposed Outbound Reply
-                </div>
-                <div style="font-size: 1.05rem; color: #111827; line-height: 1.6;">
-                    {result["generated_reply"]}
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-        st.text_area("Raw Reply Text (Copyable):", value=result["generated_reply"], height=90)
-        
-    # Section 3: Historical Precedents (Evidence Cards)
-    st.markdown("### 📚 Top-3 Historical Evidence Precedents")
-    st.caption(f"Retrieved from AmazonHelp resolution archive using **{selected_retrieval_mode.upper()}** mode.")
-    
-    cases = result.get("retrieved_cases", [])
-    if cases:
-        c_cols = st.columns(len(cases))
-        for i, case in enumerate(cases):
-            with c_cols[i]:
-                sim_score = case.get("similarity_score", 0.0)
-                sim_pct = f"{sim_score*100:.1f}%"
-                dense_score = case.get("dense_score", 0.0)
-                sparse_score = case.get("sparse_score", 0.0)
-                score_badge = f"Dense: {dense_score*100:.0f}% | Sparse: {sparse_score*100:.0f}%" if case.get("retrieval_mode") == "hybrid" else f"TF-IDF: {sparse_score*100:.0f}%"
-                st.markdown(
-                    f"""
-                    <div class="evidence-card">
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 0.4rem;">
-                            <strong>Case #{i+1}</strong>
-                            <span class="tag">Sim: {sim_pct}</span>
-                        </div>
-                        <div style="font-size: 0.72rem; color: #6366F1; margin-bottom: 0.3rem; font-weight: 500;">
-                            {score_badge}
-                        </div>
-                        <div style="font-size: 0.75rem; color: #64748B; margin-bottom: 0.4rem;">
-                            ID: <code>{case.get('conversation_id')}</code> | Intent: <code>{case.get('intent')}</code>
-                        </div>
-                        <div style="margin-bottom: 0.5rem;">
-                            <strong>Customer:</strong><br/>
-                            <span style="color: #334155;">"{case.get('customer_text', '')[:140]}..."</span>
-                        </div>
-                        <div>
-                            <strong>Brand Reply:</strong><br/>
-                            <span style="color: #1E293B;">"{case.get('brand_reply_text', '')[:140]}..."</span>
-                        </div>
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
+    st.markdown("#### 🎯 Classification Benchmarks")
+    if bench_df is not None:
+        display_df = bench_df[["Model", "Accuracy", "F1 (Weighted)"]].copy()
+        for col in ["Accuracy", "F1 (Weighted)"]:
+            display_df[col] = (display_df[col] * 100).round(1).astype(str) + "%"
+        st.dataframe(display_df, hide_index=True, use_container_width=True)
     else:
-        st.info("No historical precedent found for this query.")
+        st.info("Run `python eval/run_evaluation.py` to populate benchmarks.")
+
+    st.markdown("---")
+    st.markdown("#### 📖 In-Depth Docs")
+    st.markdown("- [Failure Analysis](docs/failure_analysis.md)")
+    st.markdown("- [Misleading Headline Numbers](docs/misleading_headline_number.md)")
+    st.markdown("- [7-Day Improvement Roadmap](docs/one_week_improvements.md)")
+    st.markdown("- [Technical Decision Log](docs/decision_log.md)")
+
+
+# ----------------- ROUTE VIEW -----------------
+if "Agent Console" in selected_view:
+    render_agent_console(pipeline, retrieval_mode=selected_retrieval_mode)
+
+elif "Live Simulator" in selected_view:
+    render_live_simulator(pipeline, retrieval_mode=selected_retrieval_mode)
+
+elif "Brand Analysis" in selected_view:
+    render_brand_analysis()
+
+elif "RAG Knowledge Search" in selected_view:
+    render_rag_search(pipeline, retrieval_mode=selected_retrieval_mode)
+
+elif "Ticket Inbox" in selected_view:
+    render_ticket_inbox(pipeline)

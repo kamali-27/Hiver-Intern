@@ -110,7 +110,7 @@ python eval/run_evaluation.py
 # 6. Benchmark Sparse vs. Hybrid Dense-Sparse Case Retrieval
 python eval/eval_retrieval.py
 
-# 7. Run full automated unit & integration test suite (21 tests)
+# 7. Run full automated unit & integration test suite (31 tests across 6 test modules)
 python -m unittest discover tests
 
 # 8. Launch the interactive Streamlit demonstration web interface
@@ -176,16 +176,37 @@ Evaluates cost-sensitive risk routing across all 194 golden test queries:
 
 ---
 
-## 7. Interactive Streamlit UI Features
+## 7. Interactive Streamlit Helpdesk Suite (5 Modules)
 
 Launch with `streamlit run app/streamlit_app.py` to explore:
-1. **Interactive Query Console**: Type custom customer inquiries or pick from 7 one-click test presets (`Delivery Delay`, `Supervisor Escalation`, `Refund Request`, `Billing Issue`, `Account Lockout`, etc.).
-2. **Retrieval Engine Switcher**: Toggle live between **Hybrid (Dense MiniLM + TF-IDF RRF)** and **Sparse (TF-IDF)** to directly witness how semantic embeddings ground colloquial phrasing (e.g. *"where is my stuff"*).
-3. **Prominent Safety Decision Badges**: Color-coded `AUTO_HANDLE` (Emerald Green) vs. `ESCALATE_TO_HUMAN` (Crimson) with explicit explainability reasons and triggered safety flags.
-4. **Intent Probability Decomposition**: Live confidence progress bar and sorted table of all 8 class probabilities.
-5. **Grounded Response & Copy Button**: Generated outbound reply with historical conversation ID citations.
-6. **Historical Precedent Evidence Cards**: Side-by-side inspection of the top-3 retrieved historical cases with similarity scores, dense/sparse score breakdowns, customer texts, and actual brand replies.
-7. **Live Sidebar Metrics**: Integrated view of golden set benchmark results and system decision guardrails.
+
+1. **🛡️ Autonomous Agent Console**:
+   - Single-query interactive testing with 7 one-click scenario presets (`Delivery Delay`, `Supervisor Escalation`, `Refund Request`, `Billing Issue`, `Account Lockout`, etc.).
+   - Live retrieval engine toggle: **Hybrid (Dense MiniLM + TF-IDF RRF)** vs. **Sparse (TF-IDF)**.
+   - Prominent color-coded safety badges (`AUTO_HANDLE` vs. `ESCALATE_TO_HUMAN`) with audit reason and triggered safety flags.
+   - Live intent probability decomposition across all 8 classes.
+   - Top-3 historical precedent evidence cards with similarity breakdowns.
+
+2. **⚡ Live Support Dialog Simulator**:
+   - Multi-turn conversational simulation with pre-built customer persona stress tests.
+   - Stateful entity extraction tracking (order IDs, tracking numbers, dispute amounts, customer emails).
+   - Turn-by-turn cumulative frustration index tracking with automatic sentiment polarity shifts.
+   - Interactive turn advancement (`Advance Next Turn`, `Run All Turns`, `Reset Simulation`).
+
+3. **📊 Brand Operations & Intelligence Dashboard**:
+   - Executive KPI cards (Inquiries Analyzed, Auto-Resolution Rate, Safe Precision, Under-Escalation, Monthly Cost Savings).
+   - Interactive Altair visualizations: Customer Inquiry Volume by Intent, Routing Escalation Breakdown, and Friction Keyword Frequencies.
+   - Support cost efficiency calculator ($6.00/human ticket vs $0.002/AI response).
+
+4. **📚 RAG Knowledge Base & Precedent Search**:
+   - Hybrid semantic (all-MiniLM-L6-v2) and lexical (TF-IDF) knowledge retrieval engine over 2,400+ historical Amazon support resolutions.
+   - Official SOP policy cheatsheets (Refund SLAs, Lost in Transit, 2FA Recovery, Return Policy).
+   - Real-time search query filtering by intent domain, similarity scoring, and on-the-fly grounded response drafting.
+
+5. **📥 Enterprise Support Ticket Inbox**:
+   - Helpdesk ticket triage queue (Hiver/Zendesk style) with dynamic queue filtering (All, Auto-Resolved, Human Specialist Queue, High Urgency Financial & Legal).
+   - Split-view triage interface: Ticket selection list on left, detail drawer with full audit reasoning on right.
+   - Human-in-the-loop action controls: Approve AI Reply, Send Custom Response, Escalate to Tier-2 Specialist, Close Ticket, and internal audit notes trail.
 
 ---
 
